@@ -1,0 +1,12 @@
+node_modules
+dist
+.DS_Store
+*.local
+.env
+.env.*
+coverage
+# Mai committare dati o bollette nel repo pubblico
+data/
+bills/
+photos/
+*.pdf
