@@ -29,15 +29,14 @@ const r = (method: AllocationRule['method'], tenantPercent = 50): AllocationRule
 
 /**
  * Regole predefinite:
- * - le quote a consumo di energia, oneri e accise si dividono in proporzione ai kWh;
- * - trasporto e gestione contatore sempre al 50% (anche la quota a consumo);
+ * - tutte le quote a consumo (€/kWh: energia, trasporto, oneri, accise) si dividono in proporzione ai kWh reali;
  * - quote fisse e potenza di qualsiasi voce al 50%;
  * - canone RAI e altre partite al 50%.
  */
 export function defaultAllocation(): AllocationSettings {
   return {
     energia: { consumo: r('kwh'), fisso: r('half'), potenza: r('half') },
-    trasporto: { consumo: r('half'), fisso: r('half'), potenza: r('half') },
+    trasporto: { consumo: r('kwh'), fisso: r('half'), potenza: r('half') },
     oneri: { consumo: r('kwh'), fisso: r('half'), potenza: r('half') },
     accise: { consumo: r('kwh'), fisso: r('half'), potenza: r('half') },
     rai: { consumo: r('half'), fisso: r('half'), potenza: r('half') },
@@ -58,7 +57,7 @@ export function defaultSettings(): Settings {
 
 export function emptyDatabase(): Database {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     settings: defaultSettings(),
     readings: [],
     electricityBills: [],
@@ -87,9 +86,13 @@ export function normalizeDatabase(input: unknown): Database {
       }
     }
   }
+  // Migrazione v1 → v2: la quota a consumo del trasporto passa da 50/50 (vecchio predefinito) ai kWh reali.
+  // Si cambia solo se era rimasta al vecchio predefinito; i mesi già pagati restano congelati con le loro regole.
+  const t = allocation.trasporto.consumo;
+  if ((db.schemaVersion ?? 1) < 2 && t.method === 'half') allocation.trasporto.consumo = r('kwh');
   settings.allocation = allocation;
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     settings,
     readings: Array.isArray(db.readings) ? db.readings : [],
     electricityBills: Array.isArray(db.electricityBills) ? db.electricityBills : [],

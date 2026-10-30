@@ -35,6 +35,23 @@ export function tenantKwhForMonth(readings: Reading[], month: string): number | 
   return row?.consumption ?? null;
 }
 
+/** Mesi di calendario tra due mesi AAAA-MM (b − a). */
+export function monthsBetween(a: string, b: string): number {
+  const [ya, ma] = a.split('-').map(Number);
+  const [yb, mb] = b.split('-').map(Number);
+  return (yb - ya) * 12 + (mb - ma);
+}
+
+/**
+ * Quanti mesi copre il consumo di un mese: normalmente 1. Se manca la lettura di un mese intermedio
+ * (non inserita o eliminata), il consumo comprende anche i mesi mancanti.
+ */
+export function monthsCoveredByReading(readings: Reading[], month: string): number | null {
+  const row = withConsumption(readings).find((r) => !r.isInitial && r.month === month);
+  if (!row?.previous) return null;
+  return monthsBetween(row.previous.month, row.month);
+}
+
 export function readingForMonth(readings: Reading[], month: string): Reading | null {
   return readings.find((r) => !r.isInitial && r.month === month) ?? null;
 }

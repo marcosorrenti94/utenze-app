@@ -82,6 +82,109 @@ describe('parseGasBill', () => {
   });
 });
 
+/** Estratto anonimizzato (solo struttura e importi) di una bolletta luce E.ON, come esce da pdfjs. */
+const EON_LUCE = `La tua bolletta
+Energia   elettrica
+PERIODO   DI   FATTURAZIONE
+
+01   settembre   2026   -   30   settembre   2026
+
+Importo   totale   da
+pagare
+179,00   €
+
+Consumo   totale   fatturato   787,79   kWh
+Il   canone   di   abbonamento   alla   televisione   per   uso   privato   di
+9,00 €   è   gi à   incluso   nel   totale
+Consumo   da   inizio   fornitura   5.396,34   kWh
+Periodo   di   riferimento   01   marzo   2026   -   30   settembre   2026
+Quota   consumi   113,84   €
+Quota   fissa   e   quota   potenza   22,87   €
+singoli   prezzi   e   corrisettivi   applicati   ai   quantitativi   consumati   sono   negli
+Elementi   di   dettaglio.
+Accise   e   IVA   33,34   €
+Totale   bolletta   170,00   €
+Canone   di   abbonamento   alla   televisione   per   uso   privato   Ottobre   2026   AU000000000000   9,00   €
+Totale   da   pagare   179,00   €
+Riepilogo   IVA
+IVA   10%   154,59   15,46
+Totale   Imposte   787,787   17,88
+Totale   Quota   variabile   26,11
+Totale   oneri   generali   di   sistema   26,11
+Elementi   di   Dettaglio   Energia   Elettrica
+Corrispettivo   Fisso   Annuo   Vendita   dal   01/09/2026   al   30/09/2026   € \\mese   9,00000000   1,000   9,00   10
+Totale   Quota   fissa   €   9,09
+Corrispettivo   Consumo   Energia   dal   01/09/2026   al   30/09/2026   € \\kWh   0,08240000   787,787   64,91   10
+Totale   Quota   energia   €   76,13
+Totale   Spesa   Energia   €   85,22
+Totale   Quota   fissa   €   1,92
+Totale   Quota   potenza   €   11,86
+Totale   Quota   variabile   €   11,60
+Totale   Spesa   per   il   Trasporto   e   Gestione   del   Contatore   €   25,38
+Totale   Quota   variabile   €   26,11
+Totale   Oneri   di   Sistema   €   26,11
+Accisa   €   17,88
+Totale   Imposte   €   17,88
+Arrotondamento   (Attuale   0,07   +   Precedente   -0,12)   €   -0,05   1,000   -0,05   E02
+Totale   Altre   Partite   €   -0,05
+IVA   10%   su   imponibile   di   €   154,59   €   15,46
+F.C.   ART.2   COM.3   L.A   su   imponibile   di   €   -0,05   €   0,00
+Totale   Bolletta   €   170,00
+`;
+
+describe('bolletta luce E.ON (Elementi di dettaglio)', () => {
+  const res = parseElectricityBill(EON_LUCE);
+  const cat = (c: string) => res.lines.find((l) => l.category === c)!;
+
+  it('usa il periodo di fatturazione, non quello "da inizio fornitura"', () => {
+    expect(res.periodStart).toBe('2026-09-01');
+    expect(res.periodEnd).toBe('2026-09-30');
+    expect(res.month).toBe('2026-09');
+  });
+  it('totale, kWh e IVA corretti', () => {
+    expect(res.totalAmount).toBe(179);
+    expect(res.totalKwh).toBe(787.79);
+    expect(res.vatRate).toBe(10);
+    expect(res.vatAmount).toBe(15.46); // non "Accise e IVA 33,34"
+  });
+  it('voci separate in consumo, quota fissa e quota potenza', () => {
+    expect(cat('energia')).toMatchObject({ consumo: 76.13, fisso: 9.09, potenza: 0 });
+    expect(cat('trasporto')).toMatchObject({ consumo: 11.6, fisso: 1.92, potenza: 11.86 });
+    expect(cat('oneri')).toMatchObject({ consumo: 26.11, fisso: 0, potenza: 0 });
+    expect(cat('accise')).toMatchObject({ consumo: 17.88 });
+    expect(cat('rai')).toMatchObject({ fisso: 9, vatExempt: true });
+    expect(cat('altre')).toMatchObject({ consumo: -0.05, vatExempt: true });
+  });
+  it('le voci + IVA tornano al totale da pagare', () => {
+    const sum = res.lines.reduce((s, l) => s + l.consumo + l.fisso + l.potenza, 0) + (res.vatAmount ?? 0);
+    expect(Math.round(sum * 100) / 100).toBe(179);
+  });
+});
+
+describe('bolletta gas E.ON', () => {
+  it('periodo di fatturazione, Smc e totale', () => {
+    const res = parseGasBill(`La tua bolletta
+Gas
+PERIODO   DI   FATTURAZIONE
+
+01   settembre   2026   -   30   settembre   2026
+
+Importo   totale   da
+pagare
+46,00   €
+
+Consumo   totale   fatturato   31,17   Smc
+Consumo   da   inizio   fornitura   242,29   Smc
+Periodo   di   riferimento   01   marzo   2026   -   30   settembre   2026
+Totale   bolletta   46,00   €
+Totale   da   pagare   46,00   €`);
+    expect(res.month).toBe('2026-09');
+    expect(res.periodStart).toBe('2026-09-01');
+    expect(res.smc).toBe(31.17);
+    expect(res.totalAmount).toBe(46);
+  });
+});
+
 describe('periodo con mesi in lettere', () => {
   it('riconosce "dal 1 marzo 2026 al 31 marzo 2026"', () => {
     const res = parseGasBill('Periodo di fornitura dal 1 marzo 2026 al 31 marzo 2026\nTotale da pagare 50,00 €');

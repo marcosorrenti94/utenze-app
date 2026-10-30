@@ -25,6 +25,9 @@ export const GENERIC_PATTERNS: PatternSet = {
     re(String.raw`${N}\s*smc\s+(?:fatturati|consumati|totali|nel\s+periodo)`),
   ],
   period: [
+    // Prima il periodo di fatturazione (anche con le date sulla riga successiva): altre righe come
+    // "Periodo di riferimento 01 marzo - 30 settembre" indicano il consumo da inizio fornitura.
+    re(String.raw`periodo\s+di\s+fatturazione[^\d]{0,40}?${D}\s*(?:-|–|—|al|a|\/)\s*${D}`),
     re(String.raw`periodo(?:\s+di)?(?:\s+(?:fatturazione|riferimento|fornitura|consumo|competenza))?[^\n\d]{0,30}?${D}\s*(?:-|–|—|al|a|\/)\s*${D}`),
     re(String.raw`dal\s+${D}\s+al\s+${D}`),
     re(String.raw`${D}\s*(?:-|–|—)\s*${D}`),

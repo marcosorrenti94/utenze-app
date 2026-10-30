@@ -294,7 +294,14 @@ export function ReadingsPage() {
         open={!!deleting}
         onOpenChange={(o) => !o && setDeleting(null)}
         title="Eliminare la lettura?"
-        description={deleting ? `La lettura di ${formatMonth(deleting.month, false)} (${formatNumber(deleting.value)} kWh) verrà eliminata.` : ''}
+        description={
+          deleting
+            ? `La lettura di ${formatMonth(deleting.month, false)} (${formatNumber(deleting.value)} kWh) verrà eliminata.` +
+              (readings.some((r) => !r.isInitial && r.date > deleting.date)
+                ? ' Il consumo del mese successivo comprenderà anche questo mese.'
+                : '')
+            : ''
+        }
         confirmLabel="Elimina"
         destructive
         onConfirm={() => {

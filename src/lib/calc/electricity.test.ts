@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { BillLine, ElectricityBill } from '@/types';
 import { computeElectricity } from './electricity';
-import { defaultAllocation } from './defaults';
+import { defaultAllocation, normalizeDatabase } from './defaults';
+
+/** Regola della prima versione: anche la quota a consumo del trasporto al 50%. I numeri dei test storici usano questa. */
+function legacyAllocation() {
+  const a = defaultAllocation();
+  a.trasporto.consumo = { method: 'half', tenantPercent: 50 };
+  return a;
+}
 import { computeGas } from './gas';
 import { validateReading, withConsumption } from './readings';
 import { round2 } from './round';
@@ -51,7 +58,7 @@ function baseBill(extra: BillLine[] = [], overrides: Partial<ElectricityBill> = 
 
 describe('computeElectricity', () => {
   it('caso standard: 120 kWh su 300, IVA 10% applicata all’imponibile dell’inquilino', () => {
-    const res = computeElectricity({ bill: baseBill(), tenantKwh: 120, allocation: defaultAllocation(), vatMode: 'rate' });
+    const res = computeElectricity({ bill: baseBill(), tenantKwh: 120, allocation: legacyAllocation(), vatMode: 'rate' });
 
     // Pool a consumo = 60 + 15 + 6,81 = 81,81 € → 0,2727 €/kWh
     expect(res.kwhPoolAmount).toBeCloseTo(81.81, 10);
@@ -71,8 +78,8 @@ describe('computeElectricity', () => {
     expect(res.warnings.filter((w) => w.level !== 'info')).toHaveLength(0);
   });
 
-  it('trasporto sempre al 50%, anche la quota a consumo', () => {
-    const res = computeElectricity({ bill: baseBill(), tenantKwh: 120, allocation: defaultAllocation(), vatMode: 'rate' });
+  it('regola personalizzata: trasporto al 50% anche sulla quota a consumo', () => {
+    const res = computeElectricity({ bill: baseBill(), tenantKwh: 120, allocation: legacyAllocation(), vatMode: 'rate' });
     const transport = res.rows.filter((r) => r.category === 'trasporto');
     expect(transport).toHaveLength(3);
     transport.forEach((r) => {
@@ -86,7 +93,7 @@ describe('computeElectricity', () => {
       totalAmount: 119.01,
       vatAmount: 10.0,
     });
-    const res = computeElectricity({ bill, tenantKwh: 120, allocation: defaultAllocation(), vatMode: 'rate' });
+    const res = computeElectricity({ bill, tenantKwh: 120, allocation: legacyAllocation(), vatMode: 'rate' });
     // Imponibile inquilino = 51,824 − 10 = 41,824 → IVA 4,1824 → + RAI 4,5 = 50,5064
     expect(res.tenantRaw).toBeCloseTo(50.5064, 10);
     expect(res.tenantTotal).toBe(50.51);
@@ -94,7 +101,7 @@ describe('computeElectricity', () => {
   });
 
   it('conguaglio configurato come proporzionale ai kWh entra nel costo unitario', () => {
-    const allocation = defaultAllocation();
+    const allocation = legacyAllocation();
     allocation.altre.consumo = { method: 'kwh', tenantPercent: 50 };
     const bill = baseBill([line({ category: 'altre', label: 'Conguaglio', consumo: -20 })], {
       totalAmount: 119.01,
@@ -108,7 +115,7 @@ describe('computeElectricity', () => {
   });
 
   it('inquilino a consumo zero: paga solo le quote fisse al 50%', () => {
-    const res = computeElectricity({ bill: baseBill(), tenantKwh: 0, allocation: defaultAllocation(), vatMode: 'rate' });
+    const res = computeElectricity({ bill: baseBill(), tenantKwh: 0, allocation: legacyAllocation(), vatMode: 'rate' });
     expect(res.tenantKwhCost).toBe(0);
     // 19,10 + IVA 1,91 + RAI 4,50 = 25,51
     expect(res.tenantTotal).toBe(25.51);
@@ -117,13 +124,13 @@ describe('computeElectricity', () => {
   });
 
   it('IVA proporzionale all’imponibile dà lo stesso risultato quando l’IVA è coerente', () => {
-    const res = computeElectricity({ bill: baseBill(), tenantKwh: 120, allocation: defaultAllocation(), vatMode: 'proportional' });
+    const res = computeElectricity({ bill: baseBill(), tenantKwh: 120, allocation: legacyAllocation(), vatMode: 'proportional' });
     expect(res.vat.tenant).toBeCloseTo(12 * (51.824 / 120.01), 10);
     expect(res.tenantTotal).toBe(61.51);
   });
 
   it('regole personalizzate ed escluse', () => {
-    const allocation = defaultAllocation();
+    const allocation = legacyAllocation();
     allocation.trasporto.consumo = { method: 'custom', tenantPercent: 30 };
     allocation.rai.fisso = { method: 'excluded', tenantPercent: 0 };
     const res = computeElectricity({ bill: baseBill(), tenantKwh: 120, allocation, vatMode: 'rate' });
@@ -138,7 +145,7 @@ describe('computeElectricity', () => {
     const res = computeElectricity({
       bill: baseBill([], { totalAmount: 150 }),
       tenantKwh: 350,
-      allocation: defaultAllocation(),
+      allocation: legacyAllocation(),
       vatMode: 'rate',
     });
     const codes = res.warnings.map((w) => w.code);
@@ -147,7 +154,7 @@ describe('computeElectricity', () => {
   });
 
   it('kWh inquilino oltre la bolletta: quota a consumo limitata al 100%, mai quota proprietario negativa', () => {
-    const res = computeElectricity({ bill: baseBill(), tenantKwh: 350, allocation: defaultAllocation(), vatMode: 'rate' });
+    const res = computeElectricity({ bill: baseBill(), tenantKwh: 350, allocation: legacyAllocation(), vatMode: 'rate' });
     res.rows
       .filter((r) => r.method === 'kwh')
       .forEach((r) => {
@@ -165,11 +172,73 @@ describe('computeElectricity', () => {
     const res = computeElectricity({
       bill: baseBill([], { totalKwh: 0 }),
       tenantKwh: 100,
-      allocation: defaultAllocation(),
+      allocation: legacyAllocation(),
       vatMode: 'rate',
     });
     expect(res.unitCost).toBeNull();
     expect(res.warnings.map((w) => w.code)).toContain('missing-bill-kwh');
+  });
+});
+
+/**
+ * Bolletta luce E.ON reale (settembre 2026, 787,79 kWh, totale da pagare 179,00 €), solo importi.
+ * Regole: quote a consumo in base ai kWh reali, quote fisse e potenza a metà.
+ */
+function eonBill(): ElectricityBill {
+  return {
+    id: 'eon',
+    month: '2026-09',
+    periodStart: '2026-09-01',
+    periodEnd: '2026-09-30',
+    totalKwh: 787.79,
+    totalAmount: 179,
+    vatRate: 10,
+    vatAmount: 15.46,
+    lines: [
+      line({ category: 'energia', consumo: 76.13, fisso: 9.09 }),
+      line({ category: 'trasporto', consumo: 11.6, fisso: 1.92, potenza: 11.86 }),
+      line({ category: 'oneri', consumo: 26.11 }),
+      line({ category: 'accise', consumo: 17.88 }),
+      line({ category: 'rai', fisso: 9, vatExempt: true }),
+      line({ category: 'altre', consumo: -0.05, vatExempt: true }), // arrotondamento fuori campo IVA
+    ],
+    createdAt: '2026-10-16T00:00:00Z',
+  };
+}
+
+describe('bolletta E.ON reale con le regole predefinite', () => {
+  it('le voci tornano al totale da pagare', () => {
+    const res = computeElectricity({ bill: eonBill(), tenantKwh: 200, allocation: defaultAllocation(), vatMode: 'rate' });
+    expect(round2(res.computedTotal)).toBe(179);
+    expect(res.warnings.filter((w) => w.level !== 'info')).toHaveLength(0);
+  });
+
+  it('inquilino 200 kWh: consumi in proporzione, quote fisse e potenza a metà', () => {
+    const res = computeElectricity({ bill: eonBill(), tenantKwh: 200, allocation: defaultAllocation(), vatMode: 'rate' });
+    // Consumi: energia 76,13 + trasporto 11,60 + oneri 26,11 + accise 17,88 = 131,72 € su 787,79 kWh
+    expect(res.kwhPoolAmount).toBeCloseTo(131.72, 10);
+    expect(res.tenantKwhCost).toBeCloseTo((131.72 * 200) / 787.79, 10); // 33,44 €
+    // Quote fisse e potenza: 9,09 + 1,92 + 11,86 = 22,87 € → 11,435 €
+    // IVA 10% sull'imponibile dell'inquilino; canone RAI e arrotondamento a metà, senza IVA
+    const expected = ((131.72 * 200) / 787.79 + 22.87 / 2) * 1.1 + 9 / 2 - 0.05 / 2;
+    expect(res.tenantRaw).toBeCloseTo(expected, 10);
+    expect(res.tenantTotal).toBe(53.84);
+    expect(res.ownerTotal).toBe(125.16);
+  });
+
+  it('il trasporto a consumo segue i kWh reali', () => {
+    const res = computeElectricity({ bill: eonBill(), tenantKwh: 200, allocation: defaultAllocation(), vatMode: 'rate' });
+    const row = res.rows.find((r) => r.category === 'trasporto' && r.component === 'consumo')!;
+    expect(row.method).toBe('kwh');
+    expect(row.tenantRatio).toBeCloseTo(200 / 787.79, 10);
+  });
+
+  it('database creati con la versione precedente: il trasporto a consumo passa ai kWh', () => {
+    const old = { schemaVersion: 1, settings: { allocation: legacyAllocation() } };
+    expect(normalizeDatabase(old).settings.allocation.trasporto.consumo.method).toBe('kwh');
+    // Una scelta fatta dopo la migrazione viene rispettata
+    const v2 = { schemaVersion: 2, settings: { allocation: legacyAllocation() } };
+    expect(normalizeDatabase(v2).settings.allocation.trasporto.consumo.method).toBe('half');
   });
 });
 
@@ -178,6 +247,11 @@ describe('computeGas', () => {
     const res = computeGas({ totalAmount: 87.4 }, 35);
     expect(res.tenantTotal).toBe(30.59); // 30,59
     expect(res.ownerTotal).toBe(56.81);
+  });
+  it('bolletta gas E.ON reale: 46,00 € → 16,10 € inquilino, 29,90 € proprietario', () => {
+    const res = computeGas({ totalAmount: 46 }, 35);
+    expect(res.tenantTotal).toBe(16.1);
+    expect(res.ownerTotal).toBe(29.9);
   });
   it('percentuale personalizzata', () => {
     expect(computeGas({ totalAmount: 100 }, 40).tenantTotal).toBe(40);

@@ -259,33 +259,37 @@ export function DataProvider({
     [enqueue, commitLocal, pushWithMerge, notifyMerge, markSynced, handleError],
   );
 
+  // Anche i file passano dalla coda: due commit contemporanei sullo stesso ramo farebbero fallire uno dei due
   const uploadFile = useCallback(
-    async (path: string, data: ArrayBuffer, message: string) => {
-      if (!navigator.onLine) {
-        toast.error('Sei offline', { description: 'Il file non è stato caricato. Riprova quando sei online.' });
-        return false;
-      }
-      try {
-        await store.putFile(path, data, message);
-        return true;
-      } catch (e) {
-        handleError(e);
-        return false;
-      }
-    },
-    [store, handleError],
+    (path: string, data: ArrayBuffer, message: string) =>
+      enqueue(async () => {
+        if (!navigator.onLine) {
+          toast.error('Sei offline', { description: 'Il file non è stato caricato. Riprova quando sei online.' });
+          return false;
+        }
+        try {
+          await store.putFile(path, data, message);
+          return true;
+        } catch (e) {
+          handleError(e);
+          return false;
+        }
+      }),
+    [enqueue, store, handleError],
   );
 
   const getFile = useCallback((path: string) => store.getFile(path), [store]);
   const deleteFile = useCallback(
-    async (path: string) => {
-      try {
-        await store.deleteFile(path, `Eliminazione ${path}`);
-      } catch (e) {
-        handleError(e);
-      }
-    },
-    [store, handleError],
+    (path: string) =>
+      enqueue(async () => {
+        if (!navigator.onLine) return;
+        try {
+          await store.deleteFile(path, `Eliminazione ${path}`);
+        } catch (e) {
+          handleError(e);
+        }
+      }),
+    [enqueue, store, handleError],
   );
 
   const value: DataContextValue = {

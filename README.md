@@ -175,7 +175,7 @@ Ogni coppia voce × componente ha un metodo di ripartizione configurabile in **I
 | Voce | Consumo | Fissa | Potenza |
 |---|---|---|---|
 | Materia energia | proporzionale ai kWh | 50/50 | 50/50 |
-| Trasporto e gestione contatore | **50/50** | 50/50 | 50/50 |
+| Trasporto e gestione contatore | proporzionale ai kWh | 50/50 | 50/50 |
 | Oneri di sistema | proporzionale ai kWh | 50/50 | 50/50 |
 | Accise | proporzionale ai kWh | 50/50 | 50/50 |
 | Canone RAI | 50/50 | 50/50 | 50/50 |
@@ -200,21 +200,30 @@ dell'inquilino. La quota del proprietario è `totale bolletta − quota inquilin
 **Avvisi:** kWh dell'inquilino superiori ai kWh della bolletta (in quel caso le voci a consumo sono attribuite al massimo al 100%), data della lettura fuori dal periodo di fatturazione
 (tolleranza 7 giorni), lettura o kWh mancanti, somma delle voci diversa dal totale della bolletta.
 
-#### Esempio (è anche il primo test)
+In sintesi: **tutto ciò che in bolletta è a €/kWh si divide in base ai kWh reali dell'inquilino; quote fisse
+(€/mese) e quote potenza (€/kW) si dividono a metà.**
 
-Bolletta di 300 kWh, IVA al 10%, inquilino 120 kWh:
+#### Esempio (bolletta E.ON reale, coperta dai test)
+
+Bolletta di settembre: 787,79 kWh, IVA 10%, totale da pagare 179,00 €. L'inquilino ha consumato 200 kWh:
 
 | Voce | Importo | Criterio | Inquilino |
 |---|---:|---|---:|
-| Energia, consumo | 60,00 € | kWh | 24,00 € |
-| Oneri, consumo | 15,00 € | kWh | 6,00 € |
-| Accise | 6,81 € | kWh | 2,724 € |
-| Quote fisse, potenza e trasporto | 38,20 € | 50/50 | 19,10 € |
-| Canone RAI (esente) | 9,00 € | 50/50 | 4,50 € |
-| IVA 10% | 12,00 € | aliquota | 5,1824 € |
-| **Totale** | **141,01 €** | | **61,51 €** |
+| Energia, quota consumi | 76,13 € | kWh | |
+| Trasporto, quota variabile | 11,60 € | kWh | |
+| Oneri di sistema, quota variabile | 26,11 € | kWh | |
+| Accise | 17,88 € | kWh | |
+| *Totale voci a consumo* | *131,72 €* | *200 / 787,79 kWh* | *33,44 €* |
+| Quote fisse (energia 9,09 + trasporto 1,92) e quota potenza (11,86) | 22,87 € | 50/50 | 11,435 € |
+| IVA 10% | 15,46 € | aliquota sull'imponibile | 4,49 € |
+| Canone RAI (fuori campo IVA) | 9,00 € | 50/50 | 4,50 € |
+| Arrotondamento (fuori campo IVA) | −0,05 € | 50/50 | −0,025 € |
+| **Totale** | **179,00 €** | | **53,84 €** |
 
-Costo unitario = 81,81 € ÷ 300 kWh = 0,2727 €/kWh → 120 kWh × 0,2727 = 32,724 €.
+Al proprietario restano 179,00 − 53,84 = **125,16 €**.
+
+Il parser legge gli importi dalla tabella **"Elementi di dettaglio"** della bolletta e li accetta solo se, sommati
+all'IVA e al canone, tornano esattamente al totale da pagare; altrimenti ricade sulla lettura generica e li segna da verificare.
 
 ### Gas
 
@@ -314,7 +323,7 @@ npm test
 `src/lib/calc/electricity.test.ts` copre:
 
 1. **caso standard**: 120 kWh su 300, IVA 10%, canone RAI → 61,51 €;
-2. **trasporto sempre al 50%**, anche sulla quota a consumo;
+2. regola personalizzata con **trasporto al 50%** anche sulla quota a consumo;
 3. **conguaglio a credito** di −20 € diviso al 50% → 50,51 €;
 4. **conguaglio proporzionale ai kWh** (regola personalizzata) che entra nel costo unitario → 52,71 €;
 5. **inquilino a consumo zero**: paga solo le quote fisse → 25,51 €;

@@ -164,20 +164,31 @@ export class GitHubStore {
     }
   }
 
-  /** Carica (o sostituisce) un file binario, es. bills/2026-03-luce.pdf */
+  /**
+   * Carica (o sostituisce) un file binario, es. bills/2026-03-luce.pdf.
+   * Un 409/422 qui significa solo che il ramo o il file sono cambiati tra la lettura dello SHA e la scrittura:
+   * si rilegge lo SHA e si riprova, senza segnalarlo come conflitto sui dati.
+   */
   async putFile(path: string, content: ArrayBuffer, message: string): Promise<void> {
-    const sha = await this.currentSha(path);
-    try {
-      await this.octokit.rest.repos.createOrUpdateFileContents({
-        ...this.repoParams,
-        path,
-        branch: this.branch,
-        message,
-        content: bytesToBase64(new Uint8Array(content)),
-        ...(sha ? { sha } : {}),
-      });
-    } catch (e) {
-      throw wrap(e);
+    const encoded = bytesToBase64(new Uint8Array(content));
+    for (let attempt = 0; ; attempt++) {
+      const sha = await this.currentSha(path);
+      try {
+        await this.octokit.rest.repos.createOrUpdateFileContents({
+          ...this.repoParams,
+          path,
+          branch: this.branch,
+          message,
+          content: encoded,
+          ...(sha ? { sha } : {}),
+        });
+        return;
+      } catch (e) {
+        const s = status(e);
+        if ((s === 409 || s === 422) && attempt < 2) continue;
+        if (s === 409 || s === 422) throw new Error(`Impossibile caricare ${path}: il repository è stato modificato durante il caricamento. Riprova.`);
+        throw wrap(e);
+      }
     }
   }
 
@@ -201,12 +212,19 @@ export class GitHubStore {
   }
 
   async deleteFile(path: string, message: string): Promise<void> {
-    const sha = await this.currentSha(path);
-    if (!sha) return;
-    try {
-      await this.octokit.rest.repos.deleteFile({ ...this.repoParams, path, sha, branch: this.branch, message });
-    } catch (e) {
-      throw wrap(e);
+    for (let attempt = 0; ; attempt++) {
+      const sha = await this.currentSha(path);
+      if (!sha) return;
+      try {
+        await this.octokit.rest.repos.deleteFile({ ...this.repoParams, path, sha, branch: this.branch, message });
+        return;
+      } catch (e) {
+        const s = status(e);
+        if (s === 404) return;
+        if ((s === 409 || s === 422) && attempt < 2) continue;
+        if (s === 409 || s === 422) throw new Error(`Impossibile eliminare ${path}: il repository è stato modificato nel frattempo. Riprova.`);
+        throw wrap(e);
+      }
     }
   }
 }

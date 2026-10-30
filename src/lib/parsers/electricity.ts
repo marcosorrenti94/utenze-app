@@ -1,6 +1,7 @@
 import type { BillLine, ElecCategory } from '@/types';
 import { CATEGORIES, CATEGORY_LABELS } from '@/lib/calc/defaults';
 import { amountAfter, amountsIn, findPeriod, findTotal, firstNumber, mergePatterns, normalizeText } from './common';
+import { parseDetailSection } from './detail';
 import { suggestMonth } from './numbers';
 import { detectProvider } from './providers';
 import type { ElectricityParseResult, PatternSet, SectionKey } from './types';
@@ -123,6 +124,26 @@ export function parseElectricityBill(rawText: string): ElectricityParseResult {
     (n) => n > 0 && n < 100_000,
   );
   if (totalKwh !== null) extracted.push('totalKwh');
+
+  // Tabella "Elementi di dettaglio": importi esatti per voce, verificati contro il totale da pagare
+  const detail = parseDetailSection(text, totalAmount);
+  if (detail) {
+    for (const l of detail.lines) if (l.consumo || l.fisso || l.potenza) extracted.push(`line:${l.category}`);
+    extracted.push('vatRate', 'vatAmount');
+    return {
+      provider: provider?.name ?? null,
+      periodStart: period.start,
+      periodEnd: period.end,
+      month: suggestMonth(period.start, period.end),
+      totalKwh,
+      totalAmount,
+      vatRate: detail.vatRate,
+      vatAmount: detail.vatAmount,
+      lines: detail.lines,
+      extracted,
+      ok: true,
+    };
+  }
 
   const vatRate = firstNumber(text, patterns.vatRate, (n) => n > 0 && n <= 22);
   if (vatRate !== null) extracted.push('vatRate');

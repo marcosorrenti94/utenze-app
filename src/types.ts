@@ -127,7 +127,7 @@ export interface MonthSnapshot {
 }
 
 export interface Database {
-  schemaVersion: 1;
+  schemaVersion: 2;
   settings: Settings;
   readings: Reading[];
   electricityBills: ElectricityBill[];

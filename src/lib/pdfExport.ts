@@ -127,7 +127,7 @@ export async function exportMonthPdf(summary: MonthSummary, settings: Settings):
   doc.setFontSize(8);
   doc.setTextColor(120);
   doc.text(
-    t('Le voci a consumo sono ripartite in base ai kWh del contascatti; quote fisse, potenza e trasporto al 50%. Solo il totale è arrotondato al centesimo.'),
+    t('Le voci a consumo (€/kWh) sono ripartite in base ai kWh del contascatti; quote fisse e quote potenza al 50%. Solo il totale è arrotondato al centesimo.'),
     14,
     Math.min(y, 285),
     { maxWidth: W - 28 },

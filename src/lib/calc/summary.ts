@@ -1,7 +1,7 @@
 import type { CalcSettings, Database, ElectricityBill, GasBill, MonthSnapshot, Payment, Reading } from '@/types';
 import { computeElectricity, type CalcWarning, type ElectricityResult } from './electricity';
 import { computeGas, type GasResult } from './gas';
-import { readingForMonth, tenantKwhForMonth } from './readings';
+import { monthsCoveredByReading, readingForMonth, tenantKwhForMonth } from './readings';
 import { round2 } from './round';
 
 export interface MonthSummary {
@@ -113,6 +113,14 @@ export function buildMonthSummary(db: Database, month: string): MonthSummary {
       vatMode: settings.vatMode,
     });
     warnings.push(...electricity.warnings);
+    const covered = monthsCoveredByReading(db.readings, month);
+    if (covered !== null && covered > 1) {
+      warnings.push({
+        level: 'warning',
+        code: 'reading-gap',
+        message: `Manca la lettura di ${covered - 1 === 1 ? 'un mese precedente' : `${covered - 1} mesi precedenti`}: il consumo di questo mese (${tenantKwh} kWh) comprende ${covered} mesi, ma viene confrontato con una sola bolletta.`,
+      });
+    }
     const period = checkPeriod(reading, electricityBill);
     if (period) warnings.push(period);
   } else {
