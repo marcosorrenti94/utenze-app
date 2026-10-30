@@ -111,6 +111,16 @@ export function App() {
   const [initial] = useState(initialConnection);
   const [connection, setConnection] = useState<Connection | null>(initial.connection);
 
+  // Link di accesso aperto con l'app già caricata nella stessa scheda: cambia solo il "#", quindi si ricarica
+  // la pagina per applicarlo dall'inizio (initialConnection).
+  useEffect(() => {
+    const onHash = () => {
+      if (isInviteHash(window.location.hash)) window.location.reload();
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+
   return (
     <ThemeProvider>
       <ThemedToaster />
