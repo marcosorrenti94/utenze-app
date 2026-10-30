@@ -63,7 +63,7 @@ export function SummaryPage({ focusMonth }: { focusMonth: string | null }) {
 
 function MonthCard({ summary: s, index, defaultOpen }: { summary: MonthSummary; index: number; defaultOpen: boolean }) {
   const db = useDb();
-  const { update } = useData();
+  const { update, readOnly } = useData();
   const [open, setOpen] = useState(defaultOpen);
   const [exporting, setExporting] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -132,6 +132,11 @@ function MonthCard({ summary: s, index, defaultOpen }: { summary: MonthSummary; 
         </div>
 
         <div className="flex flex-col gap-3 border-t bg-muted/30 px-5 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          {readOnly ? (
+            <p className="text-sm text-muted-foreground">
+              {s.payment.paid ? `Pagato${s.payment.date ? ` il ${formatDate(s.payment.date)}` : ''}` : 'Non ancora pagato'}
+            </p>
+          ) : (
           <div className="flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-2 text-sm font-medium">
               <Switch checked={s.payment.paid} onCheckedChange={(v) => void setPaid(v)} aria-label="Pagato" />
@@ -152,6 +157,7 @@ function MonthCard({ summary: s, index, defaultOpen }: { summary: MonthSummary; 
               </div>
             )}
           </div>
+          )}
           <div className="flex flex-wrap gap-1.5">
             <Button variant="outline" size="sm" onClick={() => void copyMessage()}>
               <Copy /> Copia messaggio

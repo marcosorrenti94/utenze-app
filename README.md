@@ -146,6 +146,17 @@ utenze-data/
 4. Premi **Connetti e sincronizza**.
 
 Ripeti su smartphone e PC: tutti i dispositivi leggono e scrivono lo stesso `data/db.json`.
+
+### 4. Dare accesso in sola consultazione a un'altra persona
+
+1. Crea un **secondo** fine-grained token, dedicato a quella persona: stesso repository `utenze-data`, ma
+   **Contents: Read-only** e una scadenza.
+2. Manda all'altra persona il link dell'app, owner, nome del repository e il token (con un canale sicuro).
+3. Nella schermata **Connessione** dovrà attivare **Solo consultazione** prima di verificare.
+
+Vedrà dashboard, letture, bollette (anche i PDF) e riepiloghi, ma non potrà modificare nulla: l'app nasconde i comandi di
+modifica e, soprattutto, GitHub rifiuta qualsiasi scrittura con un token in sola lettura. Per revocare l'accesso basta
+eliminare quel token da *Settings → Developer settings → Fine-grained tokens*, senza toccare il tuo.
 Con **Impostazioni → Disconnetti** il token e la cache vengono cancellati da quel dispositivo.
 
 ---

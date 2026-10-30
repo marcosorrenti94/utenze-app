@@ -16,7 +16,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useData, useDb } from '@/state/DataContext';
 import { validateReading, withConsumption } from '@/lib/calc/readings';
 import { currentMonth, formatDate, formatKwh, formatMonth, formatNumber, todayIso } from '@/lib/format';
-import { fileExtension, openBlob, uid } from '@/lib/utils';
+import { cn, fileExtension, openBlob, uid } from '@/lib/utils';
 
 interface FormState {
   month: string;
@@ -72,7 +72,7 @@ function PhotoInput({ file, onChange, id }: { file: File | null; onChange: (f: F
 
 export function ReadingsPage() {
   const db = useDb();
-  const { update, uploadFile, getFile, deleteFile } = useData();
+  const { update, uploadFile, getFile, deleteFile, readOnly } = useData();
   const readings = useMemo(() => withConsumption(db.readings), [db.readings]);
   const initial = readings.find((r) => r.isInitial) ?? null;
   const threshold = db.settings.anomalyThresholdPercent;
@@ -135,10 +135,17 @@ export function ReadingsPage() {
 
   return (
     <div>
-      <PageHeader title="Letture contascatti" description="Inserisci ogni mese il valore cumulativo in kWh del sottocontatore dell’inquilino." />
+      <PageHeader
+        title="Letture contascatti"
+        description={
+          readOnly
+            ? 'Valori cumulativi in kWh del sottocontatore dell’inquilino e consumo di ogni mese.'
+            : 'Inserisci ogni mese il valore cumulativo in kWh del sottocontatore dell’inquilino.'
+        }
+      />
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,420px)_1fr]">
-        <Card className="h-fit lg:sticky lg:top-10">
+      <div className={cn('grid gap-6', !readOnly && 'lg:grid-cols-[minmax(0,420px)_1fr]')}>
+        <Card className={cn('h-fit lg:sticky lg:top-10', readOnly && 'hidden')}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               {initial ? <Plus className="size-4 text-violet-500" /> : <Flag className="size-4 text-violet-500" />}
@@ -246,6 +253,8 @@ export function ReadingsPage() {
                             <ImageIcon />
                           </Button>
                         )}
+                        {!readOnly && (
+                        <>
                         <Button variant="ghost" size="icon" onClick={() => setEditing(r)} aria-label={`Modifica lettura ${formatMonth(r.month)}`}>
                           <Pencil />
                         </Button>
@@ -265,6 +274,8 @@ export function ReadingsPage() {
                         >
                           <Trash2 />
                         </Button>
+                        </>
+                        )}
                       </div>
                     </motion.li>
                   ))}

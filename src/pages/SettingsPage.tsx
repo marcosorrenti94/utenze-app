@@ -27,7 +27,7 @@ const METHOD_LABELS: Record<AllocationMethod, string> = {
 
 export function SettingsPage() {
   const db = useDb();
-  const { update, connection, disconnect, syncNow, lastSync } = useData();
+  const { update, connection, disconnect, syncNow, lastSync, readOnly } = useData();
   const [s, setS] = useState<Settings>(db.settings);
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
   const [importing, setImporting] = useState<unknown>(null);
@@ -46,11 +46,13 @@ export function SettingsPage() {
     <div>
       <PageHeader
         title="Impostazioni"
-        description="Regole di ripartizione, percentuali, backup e connessione."
+        description={readOnly ? 'Regole di ripartizione in uso e connessione.' : 'Regole di ripartizione, percentuali, backup e connessione.'}
         actions={
-          <Button onClick={() => void update((d) => ({ ...freezePaidMonths(d), settings: s }), 'Impostazioni salvate')} disabled={!dirty}>
-            <Save /> Salva impostazioni
-          </Button>
+          !readOnly && (
+            <Button onClick={() => void update((d) => ({ ...freezePaidMonths(d), settings: s }), 'Impostazioni salvate')} disabled={!dirty}>
+              <Save /> Salva impostazioni
+            </Button>
+          )
         }
       />
 
@@ -60,7 +62,8 @@ export function SettingsPage() {
             <CardTitle>Generali</CardTitle>
             <CardDescription>Nomi usati nei messaggi e nei PDF, quota gas e soglia consumi anomali.</CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2">
+          <CardContent>
+            <fieldset disabled={readOnly} className="grid min-w-0 gap-4 sm:grid-cols-2">
             <Field id="s-tenant" label="Nome inquilino">
               <Input id="s-tenant" value={s.tenantName} onChange={(e) => setS({ ...s, tenantName: e.target.value })} />
             </Field>
@@ -87,6 +90,7 @@ export function SettingsPage() {
                 <option value="proportional">IVA divisa in proporzione all’imponibile di ciascuno</option>
               </Select>
             </Field>
+            </fieldset>
           </CardContent>
         </Card>
 
@@ -115,9 +119,11 @@ export function SettingsPage() {
               >
                 <Download /> Esporta JSON
               </Button>
-              <Button variant="outline" onClick={() => fileRef.current?.click()}>
-                <Upload /> Importa JSON
-              </Button>
+              {!readOnly && (
+                <Button variant="outline" onClick={() => fileRef.current?.click()}>
+                  <Upload /> Importa JSON
+                </Button>
+              )}
               <input
                 ref={fileRef}
                 type="file"
@@ -157,12 +163,14 @@ export function SettingsPage() {
                 Per ogni voce e componente scegli come dividere l’importo. Le voci “proporzionali ai kWh” formano il costo unitario.
               </CardDescription>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => setS({ ...s, allocation: defaultAllocation() })}>
-              <RotateCcw /> Predefiniti
-            </Button>
+            {!readOnly && (
+              <Button variant="ghost" size="sm" onClick={() => setS({ ...s, allocation: defaultAllocation() })}>
+                <RotateCcw /> Predefiniti
+              </Button>
+            )}
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
+            <fieldset disabled={readOnly} className="min-w-0 overflow-x-auto">
               <table className="w-full min-w-[720px] text-sm">
                 <caption className="sr-only">Metodi di ripartizione per voce</caption>
                 <thead>
@@ -215,7 +223,7 @@ export function SettingsPage() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </fieldset>
             <p className="mt-4 text-xs text-muted-foreground">
               L’IVA viene calcolata a parte secondo l’impostazione “Ripartizione IVA”. Le voci segnate come esenti (es. canone RAI) non
               concorrono all’imponibile. Le modifiche valgono per i mesi ancora da pagare: i mesi già segnati come pagati restano

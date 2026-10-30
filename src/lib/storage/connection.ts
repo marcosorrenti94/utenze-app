@@ -4,6 +4,11 @@ export interface Connection {
   repo: string;
   token: string;
   branch?: string;
+  /**
+   * Solo consultazione: l'app non scrive mai sul repository e nasconde le modifiche.
+   * Va usato con un token "Contents: Read-only", che è la vera protezione lato GitHub.
+   */
+  readOnly?: boolean;
 }
 
 const KEY = 'utenze.connection.v1';

@@ -82,7 +82,7 @@ function LegendDot({ color, label }: { color: string; label: string }) {
 
 export function DashboardPage({ navigate }: { navigate: (r: Route, p?: string) => void }) {
   const db = useDb();
-  const { connection } = useData();
+  const { connection, readOnly } = useData();
   const summaries = useMemo(() => buildAllSummaries(db), [db]);
   const years = useMemo(() => [...new Set(summaries.map((s) => s.month.slice(0, 4)))].sort().reverse(), [summaries]);
   const [year, setYear] = useState<string>(() => years[0] ?? 'all');
@@ -126,11 +126,17 @@ export function DashboardPage({ navigate }: { navigate: (r: Route, p?: string) =
             icon={LayoutDashboard}
             tone="elec"
             title="Benvenuto!"
-            description="Inizia inserendo la lettura iniziale del contascatti, poi carica le bollette di luce e gas: qui vedrai grafici e totali."
+            description={
+              readOnly
+                ? 'Non ci sono ancora dati: appena verranno inserite letture e bollette, qui vedrai grafici e totali.'
+                : 'Inizia inserendo la lettura iniziale del contascatti, poi carica le bollette di luce e gas: qui vedrai grafici e totali.'
+            }
             action={
-              <Button onClick={() => navigate('letture')}>
-                <Plus /> Inserisci la prima lettura
-              </Button>
+              !readOnly && (
+                <Button onClick={() => navigate('letture')}>
+                  <Plus /> Inserisci la prima lettura
+                </Button>
+              )
             }
           />
         </Card>

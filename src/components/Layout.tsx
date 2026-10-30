@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
-import { Flame, Gauge, LayoutDashboard, Receipt, Settings, Zap } from 'lucide-react';
+import { Eye, Flame, Gauge, LayoutDashboard, Receipt, Settings, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { Route } from '@/hooks/useHashRoute';
+import { useData } from '@/state/DataContext';
 import { cn } from '@/lib/utils';
 import { SyncIndicator } from './SyncIndicator';
 import { ThemeToggle } from './ThemeToggle';
@@ -30,6 +31,7 @@ function Logo() {
 }
 
 export function Layout({ route, navigate, children }: { route: Route; navigate: (r: Route) => void; children: ReactNode }) {
+  const { readOnly } = useData();
   return (
     <div className="min-h-dvh bg-background bg-app-gradient">
       <a
@@ -98,7 +100,20 @@ export function Layout({ route, navigate, children }: { route: Route; navigate: 
       </header>
 
       <main id="main" className="px-4 pb-28 pt-6 sm:px-6 lg:ml-60 lg:px-10 lg:pb-12 lg:pt-10">
-        <div className="mx-auto max-w-6xl">{children}</div>
+        <div className="mx-auto max-w-6xl">
+          {readOnly && (
+            <div
+              role="status"
+              className="mb-6 flex items-center gap-2 rounded-xl border border-sky-500/25 bg-sky-500/5 px-4 py-2.5 text-sm text-sky-800 dark:text-sky-300"
+            >
+              <Eye className="size-4 shrink-0" aria-hidden />
+              <span>
+                <strong className="font-semibold">Solo consultazione</strong> · puoi vedere i dati ma non modificarli.
+              </span>
+            </div>
+          )}
+          {children}
+        </div>
       </main>
 
       {/* Bottom nav mobile */}

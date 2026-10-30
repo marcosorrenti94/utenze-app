@@ -20,6 +20,13 @@ export class AuthError extends Error {
   }
 }
 
+export class ReadOnlyError extends Error {
+  constructor() {
+    super('Modalità solo consultazione: le modifiche non sono consentite.');
+    this.name = 'ReadOnlyError';
+  }
+}
+
 export interface VerifyResult {
   ok: boolean;
   isPrivate: boolean;
@@ -35,7 +42,12 @@ function status(err: unknown): number | undefined {
 
 function wrap(err: unknown): Error {
   const s = status(err);
-  if (s === 401 || s === 403) return new AuthError();
+  if (s === 401) return new AuthError('Token non valido o scaduto: aggiorna la connessione.');
+  if (s === 403) {
+    return new AuthError(
+      'Il token non ha i permessi necessari. Se è un token in sola lettura, ricollegati attivando «Solo consultazione».',
+    );
+  }
   if (s === 409) return new ConflictError();
   if (err instanceof Error) return err;
   return new Error(String(err));
@@ -64,6 +76,10 @@ export class GitHubStore {
     return { owner: this.conn.owner, repo: this.conn.repo };
   }
 
+  private assertWritable() {
+    if (this.conn.readOnly) throw new ReadOnlyError();
+  }
+
   async verify(): Promise<VerifyResult> {
     try {
       const { data } = await this.octokit.rest.repos.get(this.repoParams);
@@ -78,6 +94,18 @@ export class GitHubStore {
       }
       const issues: string[] = [];
       if (!data.private) issues.push('ATTENZIONE: il repository è pubblico. Usa un repository privato per i dati.');
+      if (this.conn.readOnly) {
+        // In sola consultazione basta poter leggere i dati (la lettura di db.json qui sopra è già la prova)
+        if (!hasDatabase) issues.push('Nel repository non ci sono ancora dati da consultare.');
+        return {
+          ok: hasDatabase,
+          isPrivate: data.private,
+          canWrite: false,
+          defaultBranch: data.default_branch,
+          hasDatabase,
+          message: issues.length ? issues.join(' ') : 'Connessione riuscita in sola consultazione: potrai vedere i dati ma non modificarli.',
+        };
+      }
       if (!canWrite) issues.push('Il token non ha il permesso di scrittura (Contents: Read and write).');
       return {
         ok: canWrite,
@@ -136,6 +164,7 @@ export class GitHubStore {
 
   /** Scrive db.json usando lo SHA noto. Restituisce il nuovo SHA. */
   async writeDatabase(db: Database, sha: string | null): Promise<string> {
+    this.assertWritable();
     try {
       const { data } = await this.octokit.rest.repos.createOrUpdateFileContents({
         ...this.repoParams,
@@ -170,6 +199,7 @@ export class GitHubStore {
    * si rilegge lo SHA e si riprova, senza segnalarlo come conflitto sui dati.
    */
   async putFile(path: string, content: ArrayBuffer, message: string): Promise<void> {
+    this.assertWritable();
     const encoded = bytesToBase64(new Uint8Array(content));
     for (let attempt = 0; ; attempt++) {
       const sha = await this.currentSha(path);
@@ -212,6 +242,7 @@ export class GitHubStore {
   }
 
   async deleteFile(path: string, message: string): Promise<void> {
+    this.assertWritable();
     for (let attempt = 0; ; attempt++) {
       const sha = await this.currentSha(path);
       if (!sha) return;

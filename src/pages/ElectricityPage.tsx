@@ -33,7 +33,7 @@ function blankBill(month = currentMonth()): ElectricityBill {
 
 export function ElectricityPage({ navigate }: { navigate: (r: Route, p?: string) => void }) {
   const db = useDb();
-  const { update, uploadFile, getFile, deleteFile } = useData();
+  const { update, uploadFile, getFile, deleteFile, readOnly } = useData();
   const [draft, setDraft] = useState<ElectricityBill | null>(null);
   const [pdf, setPdf] = useState<File | null>(null);
   const [parsing, setParsing] = useState(false);
@@ -107,9 +107,9 @@ export function ElectricityPage({ navigate }: { navigate: (r: Route, p?: string)
     <div>
       <PageHeader
         title="Bollette luce"
-        description="Carica il PDF: i dati vengono letti nel browser e puoi correggerli prima di salvare."
+        description={readOnly ? 'Bollette luce caricate e relativo calcolo.' : 'Carica il PDF: i dati vengono letti nel browser e puoi correggerli prima di salvare.'}
         actions={
-          !draft && (
+          !draft && !readOnly && (
             <Button variant="outline" onClick={() => setDraft(blankBill())}>
               <PenLine /> Inserisci manualmente
             </Button>
@@ -118,7 +118,7 @@ export function ElectricityPage({ navigate }: { navigate: (r: Route, p?: string)
       />
 
       <div className="space-y-6">
-        {draft ? (
+        {readOnly ? null : draft ? (
           <ElectricityBillForm
             key={draft.id}
             initial={draft}
@@ -179,20 +179,24 @@ export function ElectricityPage({ navigate }: { navigate: (r: Route, p?: string)
                           <FileText /> PDF
                         </Button>
                       )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setPdf(null);
-                          setDraft({ ...b, autoExtracted: [] });
-                          window.scrollTo({ top: 0, behavior: 'smooth' });
-                        }}
-                      >
-                        <Pencil /> Modifica
-                      </Button>
-                      <Button variant="ghost" size="sm" className="ml-auto text-destructive" onClick={() => setDeleting(b)} aria-label={`Elimina bolletta ${formatMonth(b.month)}`}>
-                        <Trash2 />
-                      </Button>
+                      {!readOnly && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setPdf(null);
+                              setDraft({ ...b, autoExtracted: [] });
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                          >
+                            <Pencil /> Modifica
+                          </Button>
+                          <Button variant="ghost" size="sm" className="ml-auto text-destructive" onClick={() => setDeleting(b)} aria-label={`Elimina bolletta ${formatMonth(b.month)}`}>
+                            <Trash2 />
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </motion.li>
                 ))}

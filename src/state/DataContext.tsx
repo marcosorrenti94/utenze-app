@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import type { Database } from '@/types';
 import { emptyDatabase } from '@/lib/calc/defaults';
 import { buildSnapshots } from '@/lib/calc/summary';
-import { AuthError, ConflictError, GitHubStore } from '@/lib/storage/github';
+import { ConflictError, GitHubStore } from '@/lib/storage/github';
 import { readCache, writeCache } from '@/lib/storage/cache';
 import { mergeDatabases } from '@/lib/storage/merge';
 import { connectionKey, type Connection } from '@/lib/storage/connection';
@@ -12,6 +12,8 @@ export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'offline' | 'error';
 
 interface DataContextValue {
   connection: Connection;
+  /** Solo consultazione: nessuna modifica possibile, le pagine nascondono i comandi di modifica */
+  readOnly: boolean;
   db: Database | null;
   loading: boolean;
   status: SyncStatus;
@@ -46,6 +48,7 @@ export function DataProvider({
   children: ReactNode;
 }) {
   const key = connectionKey(connection);
+  const readOnly = Boolean(connection.readOnly);
   const store = useMemo(() => new GitHubStore(connection), [connection]);
 
   const [db, setDb] = useState<Database | null>(null);
@@ -86,7 +89,7 @@ export function DataProvider({
       setStatus('offline');
       return;
     }
-    const msg = e instanceof AuthError ? 'Token non valido o scaduto: aggiorna la connessione.' : e instanceof Error ? e.message : String(e);
+    const msg = e instanceof Error ? e.message : String(e);
     setStatus('error');
     setError(msg);
     toast.error('Errore di sincronizzazione', { description: msg });
@@ -97,12 +100,14 @@ export function DataProvider({
     const remote = await store.readDatabase();
     if (remote) {
       await commitLocal(remote.db, remote.sha, false, remote.db);
+    } else if (readOnly) {
+      await commitLocal(emptyDatabase(), null, false, null);
     } else {
       const initial = finalize(dbRef.current ?? emptyDatabase());
       const sha = await store.writeDatabase(initial, null);
       await commitLocal(initial, sha, false, initial);
     }
-  }, [store, commitLocal]);
+  }, [store, commitLocal, readOnly]);
 
   /** Invia le modifiche locali usando lo SHA noto. */
   const push = useCallback(async () => {
@@ -168,7 +173,7 @@ export function DataProvider({
         }
         setStatus('syncing');
         try {
-          if (dirtyRef.current && dbRef.current) {
+          if (dirtyRef.current && dbRef.current && !readOnly) {
             const conflicts = await pushWithMerge();
             toast.success('Modifiche offline sincronizzate');
             notifyMerge(conflicts);
@@ -180,7 +185,7 @@ export function DataProvider({
           handleError(e);
         }
       }),
-    [enqueue, pushWithMerge, notifyMerge, pull, markSynced, handleError],
+    [enqueue, pushWithMerge, notifyMerge, pull, markSynced, handleError, readOnly],
   );
 
   // Avvio: cache locale (istantanea) → sincronizzazione con GitHub
@@ -203,7 +208,7 @@ export function DataProvider({
       if (!cancelled) {
         if (!dbRef.current) {
           // Offline al primo avvio senza cache: si parte da un database vuoto locale
-          await commitLocal(emptyDatabase(), null, true, null);
+          await commitLocal(emptyDatabase(), null, !readOnly, null);
         }
         setLoading(false);
       }
@@ -232,6 +237,10 @@ export function DataProvider({
   const update = useCallback<DataContextValue['update']>(
     (mutator, successMessage) =>
       enqueue(async () => {
+        if (readOnly) {
+          toast.error('Solo consultazione', { description: 'Con questo accesso puoi vedere i dati ma non modificarli.' });
+          return false;
+        }
         const base = dbRef.current ?? emptyDatabase();
         const draft = structuredClone(base);
         const result = mutator(draft) ?? draft;
@@ -256,13 +265,14 @@ export function DataProvider({
           return false;
         }
       }),
-    [enqueue, commitLocal, pushWithMerge, notifyMerge, markSynced, handleError],
+    [enqueue, commitLocal, pushWithMerge, notifyMerge, markSynced, handleError, readOnly],
   );
 
   // Anche i file passano dalla coda: due commit contemporanei sullo stesso ramo farebbero fallire uno dei due
   const uploadFile = useCallback(
     (path: string, data: ArrayBuffer, message: string) =>
       enqueue(async () => {
+        if (readOnly) return false;
         if (!navigator.onLine) {
           toast.error('Sei offline', { description: 'Il file non è stato caricato. Riprova quando sei online.' });
           return false;
@@ -275,25 +285,26 @@ export function DataProvider({
           return false;
         }
       }),
-    [enqueue, store, handleError],
+    [enqueue, store, handleError, readOnly],
   );
 
   const getFile = useCallback((path: string) => store.getFile(path), [store]);
   const deleteFile = useCallback(
     (path: string) =>
       enqueue(async () => {
-        if (!navigator.onLine) return;
+        if (readOnly || !navigator.onLine) return;
         try {
           await store.deleteFile(path, `Eliminazione ${path}`);
         } catch (e) {
           handleError(e);
         }
       }),
-    [enqueue, store, handleError],
+    [enqueue, store, handleError, readOnly],
   );
 
   const value: DataContextValue = {
     connection,
+    readOnly,
     db,
     loading,
     status,

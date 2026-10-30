@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import { Field } from '@/components/Field';
 import { PrivacyNote } from '@/components/PrivacyNote';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -16,10 +17,11 @@ export function ConnectionPage({ onConnect }: { onConnect: (c: Connection) => vo
   const [repo, setRepo] = useState('utenze-data');
   const [token, setToken] = useState('');
   const [showToken, setShowToken] = useState(false);
+  const [readOnly, setReadOnly] = useState(false);
   const [checking, setChecking] = useState(false);
   const [result, setResult] = useState<VerifyResult | null>(null);
 
-  const conn = (): Connection => ({ owner: owner.trim(), repo: repo.trim(), token: token.trim() });
+  const conn = (): Connection => ({ owner: owner.trim(), repo: repo.trim(), token: token.trim(), ...(readOnly ? { readOnly: true } : {}) });
   const valid = owner.trim() && repo.trim() && token.trim();
 
   async function verify() {
@@ -66,7 +68,11 @@ export function ConnectionPage({ onConnect }: { onConnect: (c: Connection) => vo
             <CardTitle className="flex items-center gap-2">
               <Github className="size-4" aria-hidden /> Connessione
             </CardTitle>
-            <CardDescription>Usa un Fine-grained Personal Access Token con permesso Contents: Read and write solo sul repo dati.</CardDescription>
+            <CardDescription>
+              {readOnly
+                ? 'Usa il token in sola lettura che ti ha dato il proprietario (permesso Contents: Read-only sul repo dati).'
+                : 'Usa un Fine-grained Personal Access Token con permesso Contents: Read and write solo sul repo dati.'}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form
@@ -149,6 +155,23 @@ export function ConnectionPage({ onConnect }: { onConnect: (c: Connection) => vo
                   </button>
                 </div>
               </Field>
+
+              <label htmlFor="read-only" className="flex cursor-pointer items-start justify-between gap-4 rounded-lg border p-3">
+                <span>
+                  <span className="block text-sm font-medium">Solo consultazione</span>
+                  <span className="block text-xs text-muted-foreground">
+                    Per chi deve solo vedere dashboard e riepiloghi, senza poter modificare i dati.
+                  </span>
+                </span>
+                <Switch
+                  id="read-only"
+                  checked={readOnly}
+                  onCheckedChange={(v) => {
+                    setReadOnly(v);
+                    setResult(null);
+                  }}
+                />
+              </label>
 
               {result && (
                 <motion.div
