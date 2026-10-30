@@ -151,8 +151,14 @@ Ripeti su smartphone e PC: tutti i dispositivi leggono e scrivono lo stesso `dat
 
 1. Crea un **secondo** fine-grained token, dedicato a quella persona: stesso repository `utenze-data`, ma
    **Contents: Read-only** e una scadenza.
-2. Manda all'altra persona il link dell'app, owner, nome del repository e il token (con un canale sicuro).
-3. Nella schermata **Connessione** dovrà attivare **Solo consultazione** prima di verificare.
+2. In **Impostazioni → Condividi in sola consultazione** incollalo e premi **Crea link**: l'app verifica il token e
+   genera un link `https://…/utenze-app/#invito=…`.
+3. Invia il link: chi lo apre entra direttamente in sola consultazione, **senza token né account GitHub**.
+
+Il token viaggia dentro il link, dopo il `#` (parte che i browser non inviano mai ai server); all'apertura l'app lo
+salva sul dispositivo e lo toglie dalla barra degli indirizzi. Il link non è cifrato: chi lo possiede vede i dati, quindi
+mandalo solo alla persona interessata. In alternativa la persona può collegarsi a mano dalla schermata **Connessione**
+attivando **Solo consultazione**.
 
 Vedrà dashboard, letture, bollette (anche i PDF) e riepiloghi, ma non potrà modificare nulla: l'app nasconde i comandi di
 modifica e, soprattutto, GitHub rifiuta qualsiasi scrittura con un token in sola lettura. Per revocare l'accesso basta

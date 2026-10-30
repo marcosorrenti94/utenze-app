@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Toaster } from 'sonner';
+import { Toaster, toast } from 'sonner';
 import { Layout } from '@/components/Layout';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ThemeProvider, useTheme } from '@/hooks/useTheme';
 import { useHashRoute } from '@/hooks/useHashRoute';
 import { clearCache } from '@/lib/storage/cache';
 import { clearConnection, loadConnection, saveConnection, type Connection } from '@/lib/storage/connection';
+import { clearInviteFromUrl, isInviteHash, parseInviteHash } from '@/lib/storage/invite';
 import { DataProvider, useData } from '@/state/DataContext';
 import { ConnectionPage } from '@/pages/ConnectionPage';
 import { DashboardPage } from '@/pages/DashboardPage';
@@ -80,12 +81,40 @@ function ThemedToaster() {
   return <Toaster theme={resolved} position="top-center" richColors closeButton toastOptions={{ className: 'font-sans' }} />;
 }
 
+type InviteOutcome = 'connected' | 'ignored-owner' | 'invalid' | null;
+
+/** Applica un eventuale link di accesso (#invito=…) prima del primo render. */
+function initialConnection(): { connection: Connection | null; invite: InviteOutcome } {
+  const existing = loadConnection();
+  if (!isInviteHash(window.location.hash)) return { connection: existing, invite: null };
+  const invite = parseInviteHash(window.location.hash);
+  clearInviteFromUrl();
+  if (!invite) return { connection: existing, invite: 'invalid' };
+  // Su un dispositivo già collegato con accesso completo (il proprietario) l'invito non sostituisce la connessione
+  if (existing && !existing.readOnly) return { connection: existing, invite: 'ignored-owner' };
+  saveConnection(invite);
+  return { connection: invite, invite: 'connected' };
+}
+
+function InviteNotice({ outcome }: { outcome: InviteOutcome }) {
+  useEffect(() => {
+    if (outcome === 'connected') toast.success('Accesso in sola consultazione attivato', { description: 'Puoi vedere i dati ma non modificarli.' });
+    if (outcome === 'ignored-owner') {
+      toast.info('Link di accesso ignorato', { description: 'Questo dispositivo è già collegato con accesso completo.' });
+    }
+    if (outcome === 'invalid') toast.error('Link di accesso non valido', { description: 'Chiedi al proprietario di inviarti un nuovo link.' });
+  }, [outcome]);
+  return null;
+}
+
 export function App() {
-  const [connection, setConnection] = useState<Connection | null>(() => loadConnection());
+  const [initial] = useState(initialConnection);
+  const [connection, setConnection] = useState<Connection | null>(initial.connection);
 
   return (
     <ThemeProvider>
       <ThemedToaster />
+      <InviteNotice outcome={initial.invite} />
       {connection ? (
         <DataProvider
           key={`${connection.owner}/${connection.repo}`}

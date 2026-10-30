@@ -12,6 +12,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { PrivacyNote } from '@/components/PrivacyNote';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { SyncIndicator } from '@/components/SyncIndicator';
+import { ShareAccessCard } from '@/components/ShareAccessCard';
 import { useData, useDb } from '@/state/DataContext';
 import { CATEGORIES, CATEGORY_LABELS, COMPONENTS, COMPONENT_LABELS, defaultAllocation, isDatabaseLike, normalizeDatabase } from '@/lib/calc/defaults';
 import { freezePaidMonths } from '@/lib/calc/summary';
@@ -154,6 +155,8 @@ export function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+
+        {!readOnly && <ShareAccessCard />}
 
         <Card className="lg:col-span-2">
           <CardHeader className="flex-row items-start justify-between gap-3 space-y-0">
