@@ -103,7 +103,7 @@ export function buildMonthSummary(db: Database, month: string): MonthSummary {
       warnings.push({
         level: 'error',
         code: 'missing-reading',
-        message: 'Manca la lettura del contascatti per questo mese: la quota a consumo è calcolata con 0 kWh.',
+        message: `Manca la lettura del contascatti per questo mese: la quota a consumo di ${db.settings.tenantName} è calcolata con 0 kWh.`,
       });
     }
     electricity = computeElectricity({
@@ -111,6 +111,7 @@ export function buildMonthSummary(db: Database, month: string): MonthSummary {
       tenantKwh: tenantKwh ?? 0,
       allocation: settings.allocation,
       vatMode: settings.vatMode,
+      tenantName: db.settings.tenantName,
     });
     warnings.push(...electricity.warnings);
     const covered = monthsCoveredByReading(db.readings, month);

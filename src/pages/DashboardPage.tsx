@@ -3,8 +3,6 @@ import { motion } from 'framer-motion';
 import {
   Area,
   AreaChart,
-  Bar,
-  BarChart,
   CartesianGrid,
   Cell,
   Legend,
@@ -17,7 +15,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { ArrowDownRight, ArrowUpRight, Gauge, LayoutDashboard, PiggyBank, Plus, Receipt, Wallet } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Flame, Gauge, LayoutDashboard, PiggyBank, Plus, Receipt, Wallet, Zap } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
@@ -27,8 +25,11 @@ import { ChartTooltip } from '@/components/ChartTooltip';
 import { EmptyState } from '@/components/EmptyState';
 import { PageHeader } from '@/components/PageHeader';
 import { PrivacyNote } from '@/components/PrivacyNote';
+import { PersonSplitCard } from '@/components/PersonSplitCard';
 import { useData, useDb } from '@/state/DataContext';
+import { useNames } from '@/hooks/useNames';
 import { buildAllSummaries } from '@/lib/calc/summary';
+import { electricitySplitByMonth, gasSplitByMonth } from '@/lib/calc/split';
 import { billBreakdown } from '@/lib/calc/electricity';
 import { CATEGORY_COLORS, COLORS } from '@/lib/palette';
 import { formatEuro, formatKwh, formatMonth, formatMonthShort, formatNumber, formatPercent, previousMonth } from '@/lib/format';
@@ -71,19 +72,13 @@ function ChartCard({
   );
 }
 
-function LegendDot({ color, label }: { color: string; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-      <span className="size-2 rounded-full" style={{ background: color }} />
-      {label}
-    </span>
-  );
-}
-
 export function DashboardPage({ navigate }: { navigate: (r: Route, p?: string) => void }) {
   const db = useDb();
   const { connection, readOnly } = useData();
+  const names = useNames();
   const summaries = useMemo(() => buildAllSummaries(db), [db]);
+  const elecPoints = useMemo(() => electricitySplitByMonth(summaries), [summaries]);
+  const gasPoints = useMemo(() => gasSplitByMonth(summaries), [summaries]);
   const years = useMemo(() => [...new Set(summaries.map((s) => s.month.slice(0, 4)))].sort().reverse(), [summaries]);
   const [year, setYear] = useState<string>(() => years[0] ?? 'all');
   const [spendView, setSpendView] = useState<SpendView>('totale');
@@ -216,7 +211,7 @@ export function DashboardPage({ navigate }: { navigate: (r: Route, p?: string) =
           index={1}
           icon={Gauge}
           color={COLORS.electricity}
-          label="kWh inquilino"
+          label={`kWh ${names.tenant}`}
           value={formatKwh(latest.tenantKwh)}
           sub={
             <span className="inline-flex items-center gap-1">
@@ -251,37 +246,37 @@ export function DashboardPage({ navigate }: { navigate: (r: Route, p?: string) =
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        <ChartCard
-          title="Consumi mensili"
-          description="kWh fatturati: quota inquilino e quota mia"
+        <PersonSplitCard
+          title="Luce"
+          description={`Consumi e spesa di ${names.tenant} e ${names.owner}`}
+          icon={Zap}
+          accent={COLORS.electricity}
+          unit="kWh"
+          points={elecPoints}
+          year={selectedYear}
+          names={names}
+          note={`kWh di ${names.tenant} dal contascatti; quelli di ${names.owner} sono il resto dei kWh in bolletta.`}
           delay={0.1}
-          action={
-            <div className="hidden gap-3 sm:flex">
-              <LegendDot color={COLORS.tenant} label="Inquilino" />
-              <LegendDot color={COLORS.owner} label="Io" />
-            </div>
-          }
-        >
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={rows} margin={{ top: 8, right: 4, left: -12, bottom: 0 }} barCategoryGap="28%">
-                <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                <XAxis dataKey="label" {...axisProps} />
-                <YAxis {...axisProps} tickFormatter={(v: number) => formatNumber(v, 0)} />
-                <Tooltip
-                  cursor={{ fill: 'hsl(var(--muted))', opacity: 0.5 }}
-                  content={<ChartTooltip kind="kwh" showTotal labelFormatter={(l) => l} />}
-                />
-                <Bar dataKey="tenantKwh" name="Inquilino" stackId="kwh" fill={COLORS.tenant} radius={[0, 0, 4, 4]} animationDuration={700} />
-                <Bar dataKey="ownerKwh" name="Io" stackId="kwh" fill={COLORS.owner} radius={[6, 6, 0, 0]} animationDuration={700} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </ChartCard>
+        />
+
+        <PersonSplitCard
+          title="Gas"
+          description={`Consumi e spesa di ${names.tenant} e ${names.owner}`}
+          icon={Flame}
+          accent={COLORS.gas}
+          unit="Smc"
+          points={gasPoints}
+          year={selectedYear}
+          names={names}
+          note={`Il gas ha un solo contatore: gli Smc sono attribuiti con la stessa percentuale della spesa (${formatNumber(
+            db.settings.gasTenantPercent,
+          )}% a ${names.tenant}).`}
+          delay={0.12}
+        />
 
         <ChartCard
           title="Andamento spesa"
-          description="Quota inquilino vs quota mia"
+          description={`Quota di ${names.tenant} e di ${names.owner}, impilate`}
           delay={0.15}
           action={
             <Tabs value={spendView} onValueChange={(v) => setSpendView(v as SpendView)}>
@@ -314,7 +309,7 @@ export function DashboardPage({ navigate }: { navigate: (r: Route, p?: string) =
                   key={`${spendView}-t`}
                   type="monotone"
                   dataKey={spendKeys[0]}
-                  name="Inquilino"
+                  name={names.tenant}
                   stackId="s"
                   stroke={COLORS.tenant}
                   strokeWidth={2}
@@ -325,7 +320,7 @@ export function DashboardPage({ navigate }: { navigate: (r: Route, p?: string) =
                   key={`${spendView}-o`}
                   type="monotone"
                   dataKey={spendKeys[1]}
-                  name="Io"
+                  name={names.owner}
                   stackId="s"
                   stroke={COLORS.owner}
                   strokeWidth={2}
@@ -378,6 +373,7 @@ export function DashboardPage({ navigate }: { navigate: (r: Route, p?: string) =
           title="Composizione ultima bolletta luce"
           description={lastBill ? `${formatMonth(lastBill.month)} · ${formatEuro(lastBill.totalAmount)}` : 'Nessuna bolletta'}
           delay={0.25}
+          className="lg:col-span-2"
         >
           {donut.length ? (
             <div className="grid items-center gap-4 sm:grid-cols-[1fr_1fr]">

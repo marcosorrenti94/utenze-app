@@ -14,6 +14,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Field } from '@/components/Field';
 import { NumberInput } from '@/components/NumberInput';
 import { useData, useDb } from '@/state/DataContext';
+import { useNames } from '@/hooks/useNames';
 import { extractPdfText, parseGasBill } from '@/lib/parsers';
 import { computeGas } from '@/lib/calc/gas';
 import { calcSettingsForMonth } from '@/lib/calc/summary';
@@ -25,6 +26,7 @@ function blankGas(month = currentMonth()): GasBill {
 }
 
 export function GasPage() {
+  const names = useNames();
   const db = useDb();
   const { update, uploadFile, getFile, deleteFile, readOnly } = useData();
   const [draft, setDraft] = useState<GasBill | null>(null);
@@ -95,7 +97,7 @@ export function GasPage() {
     <div>
       <PageHeader
         title="Bollette gas"
-        description={`L’inquilino paga il ${formatNumber(percent)}% dell’importo totale${readOnly ? '.' : ' (modificabile nelle Impostazioni).'}`}
+        description={`${names.tenant} paga il ${formatNumber(percent)}% dell’importo totale${readOnly ? '.' : ' (modificabile nelle Impostazioni).'}`}
         actions={
           !draft && !readOnly && (
             <Button variant="outline" onClick={() => setDraft(blankGas())}>
@@ -146,11 +148,11 @@ export function GasPage() {
                   {preview && (
                     <div className="grid grid-cols-2 gap-4 rounded-2xl border bg-gradient-to-br from-cyan-500/5 to-violet-500/5 p-4">
                       <div>
-                        <p className="text-xs text-muted-foreground">Quota inquilino ({formatNumber(preview.percent)}%)</p>
+                        <p className="text-xs text-muted-foreground">Quota {names.tenant} ({formatNumber(preview.percent)}%)</p>
                         <p className="text-xl font-semibold tabular text-violet-600 dark:text-violet-300">{formatEuro(preview.tenantTotal)}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-muted-foreground">Quota mia</p>
+                        <p className="text-xs text-muted-foreground">Quota {names.owner}</p>
                         <p className="text-xl font-semibold tabular text-emerald-600 dark:text-emerald-400">{formatEuro(preview.ownerTotal)}</p>
                       </div>
                     </div>
@@ -211,7 +213,7 @@ export function GasPage() {
                         <p className="text-sm text-muted-foreground tabular">{b.smc ? `${formatNumber(b.smc)} Smc` : ''}</p>
                       </div>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Inquilino <span className="font-medium text-violet-600 dark:text-violet-300 tabular">{formatEuro(g.tenantTotal)}</span>
+                        {names.tenant} <span className="font-medium text-violet-600 dark:text-violet-300 tabular">{formatEuro(g.tenantTotal)}</span>
                       </p>
                       <div className="mt-3 flex flex-wrap gap-1 border-t pt-3">
                         {b.pdfPath && (

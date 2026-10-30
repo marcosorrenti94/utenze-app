@@ -1,9 +1,16 @@
 import type { TooltipProps } from 'recharts';
-import { formatEuro, formatKwh, formatEuroPrecise } from '@/lib/format';
+import { formatEuro, formatKwh, formatEuroPrecise, formatNumber } from '@/lib/format';
 
-type Kind = 'euro' | 'kwh' | 'unit';
+type Kind = 'euro' | 'kwh' | 'smc' | 'unit';
 
-const fmt = (v: number, kind: Kind) => (kind === 'euro' ? formatEuro(v) : kind === 'kwh' ? formatKwh(v) : `${formatEuroPrecise(v)}/kWh`);
+const fmt = (v: number, kind: Kind) =>
+  kind === 'euro'
+    ? formatEuro(v)
+    : kind === 'kwh'
+      ? formatKwh(v)
+      : kind === 'smc'
+        ? `${formatNumber(v)} Smc`
+        : `${formatEuroPrecise(v)}/kWh`;
 
 /** Tooltip personalizzato coerente con il design system. */
 export function ChartTooltip({

@@ -17,6 +17,7 @@ import { calcSettingsForMonth, checkPeriod } from '@/lib/calc/summary';
 import { readingForMonth, tenantKwhForMonth } from '@/lib/calc/readings';
 import { formatEuro, formatEuroPrecise, formatKwh, formatMonth } from '@/lib/format';
 import { useDb } from '@/state/DataContext';
+import { useNames } from '@/hooks/useNames';
 import { uid } from '@/lib/utils';
 
 interface Props {
@@ -27,6 +28,7 @@ interface Props {
 }
 
 export function ElectricityBillForm({ initial, fileName, onCancel, onSave }: Props) {
+  const names = useNames();
   const db = useDb();
   const [bill, setBill] = useState<ElectricityBill>(initial);
   const [saving, setSaving] = useState(false);
@@ -45,6 +47,7 @@ export function ElectricityBillForm({ initial, fileName, onCancel, onSave }: Pro
       tenantKwh: tenantKwh ?? 0,
       allocation: settings.allocation,
       vatMode: settings.vatMode,
+      tenantName: db.settings.tenantName,
     });
   }, [bill, tenantKwh, db]);
   const warnings = [...preview.warnings];
@@ -236,11 +239,11 @@ export function ElectricityBillForm({ initial, fileName, onCancel, onSave }: Pro
                 <p className="font-semibold tabular">{preview.unitCost === null ? '—' : `${formatEuroPrecise(preview.unitCost)}/kWh`}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">kWh inquilino</p>
+                <p className="text-xs text-muted-foreground">kWh {names.tenant}</p>
                 <p className="font-semibold tabular">{formatKwh(tenantKwh)}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Quota inquilino (anteprima)</p>
+                <p className="text-xs text-muted-foreground">Quota {names.tenant} (anteprima)</p>
                 <p className="text-lg font-semibold tabular text-violet-600 dark:text-violet-300">{formatEuro(preview.tenantTotal)}</p>
               </div>
             </div>

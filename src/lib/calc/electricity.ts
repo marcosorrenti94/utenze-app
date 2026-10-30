@@ -38,6 +38,8 @@ export interface ElectricityInput {
   tenantKwh: number;
   allocation: AllocationSettings;
   vatMode: VatMode;
+  /** Nome di chi paga la quota (usato nei testi dei criteri e degli avvisi) */
+  tenantName?: string;
 }
 
 export interface ElectricityResult {
@@ -79,7 +81,7 @@ export interface ElectricityResult {
   warnings: CalcWarning[];
 }
 
-function describe(method: AllocationMethod, tenantPercent: number, tenantKwh: number, billKwh: number): string {
+function describe(method: AllocationMethod, tenantPercent: number, tenantKwh: number, billKwh: number, tenantName: string): string {
   switch (method) {
     case 'kwh':
       return billKwh > 0
@@ -88,9 +90,9 @@ function describe(method: AllocationMethod, tenantPercent: number, tenantKwh: nu
     case 'half':
       return '50 / 50';
     case 'custom':
-      return `Personalizzata (${fmt(tenantPercent)}% inquilino)`;
+      return `Personalizzata (${fmt(tenantPercent)}% ${tenantName})`;
     case 'excluded':
-      return 'Esclusa (a carico del proprietario)';
+      return `Esclusa (nessuna quota a ${tenantName})`;
   }
 }
 
@@ -118,6 +120,7 @@ function ratioFor(method: AllocationMethod, tenantPercent: number, tenantKwh: nu
  */
 export function computeElectricity(input: ElectricityInput): ElectricityResult {
   const { bill, allocation, vatMode } = input;
+  const tenantName = input.tenantName?.trim() || "l'inquilino";
   const warnings: CalcWarning[] = [];
   const billKwh = safeNumber(bill.totalKwh);
   const tenantKwh = Math.max(0, safeNumber(input.tenantKwh));
@@ -133,7 +136,7 @@ export function computeElectricity(input: ElectricityInput): ElectricityResult {
     warnings.push({
       level: 'error',
       code: 'tenant-exceeds-bill',
-      message: `I kWh dell'inquilino (${fmt(tenantKwh)}) superano i kWh totali della bolletta (${fmt(billKwh)}): le voci a consumo sono state attribuite al 100% all'inquilino. Verifica la lettura.`,
+      message: `I kWh di ${tenantName} (${fmt(tenantKwh)}) superano i kWh totali della bolletta (${fmt(billKwh)}): le voci a consumo sono state attribuite al 100% a ${tenantName}. Verifica la lettura.`,
     });
   }
   if (!bill.lines.length) {
@@ -155,7 +158,7 @@ export function computeElectricity(input: ElectricityInput): ElectricityResult {
         component,
         amount,
         method: rule.method,
-        criterion: describe(rule.method, rule.tenantPercent, tenantKwh, billKwh),
+        criterion: describe(rule.method, rule.tenantPercent, tenantKwh, billKwh, tenantName),
         tenantRatio,
         tenant,
         owner: amount - tenant,

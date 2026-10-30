@@ -14,6 +14,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useData, useDb } from '@/state/DataContext';
+import { useNames } from '@/hooks/useNames';
 import { validateReading, withConsumption } from '@/lib/calc/readings';
 import { currentMonth, formatDate, formatKwh, formatMonth, formatNumber, todayIso } from '@/lib/format';
 import { cn, fileExtension, openBlob, uid } from '@/lib/utils';
@@ -71,6 +72,7 @@ function PhotoInput({ file, onChange, id }: { file: File | null; onChange: (f: F
 }
 
 export function ReadingsPage() {
+  const names = useNames();
   const db = useDb();
   const { update, uploadFile, getFile, deleteFile, readOnly } = useData();
   const readings = useMemo(() => withConsumption(db.readings), [db.readings]);
@@ -139,8 +141,8 @@ export function ReadingsPage() {
         title="Letture contascatti"
         description={
           readOnly
-            ? 'Valori cumulativi in kWh del sottocontatore dell’inquilino e consumo di ogni mese.'
-            : 'Inserisci ogni mese il valore cumulativo in kWh del sottocontatore dell’inquilino.'
+            ? `Valori cumulativi in kWh del sottocontatore di ${names.tenant} e consumo di ogni mese.`
+            : `Inserisci ogni mese il valore cumulativo in kWh del sottocontatore di ${names.tenant}.`
         }
       />
 

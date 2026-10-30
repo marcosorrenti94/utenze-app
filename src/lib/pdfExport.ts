@@ -38,7 +38,7 @@ export async function exportMonthPdf(summary: MonthSummary, settings: Settings):
   doc.setFillColor(245, 243, 255);
   doc.roundedRect(14, y, W - 28, 20, 3, 3, 'FD');
   doc.setFontSize(10);
-  doc.text('Totale dovuto dall\'inquilino', 20, y + 8);
+  doc.text(t(`Totale dovuto da ${settings.tenantName}`), 20, y + 8);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
   doc.text(t(formatEuro(summary.tenantTotal)), W - 20, y + 9, { align: 'right' });
@@ -62,7 +62,7 @@ export async function exportMonthPdf(summary: MonthSummary, settings: Settings):
     const info = [
       b.periodStart && b.periodEnd ? `Periodo ${formatDate(b.periodStart)} - ${formatDate(b.periodEnd)}` : null,
       `Bolletta ${formatEuro(e.billTotal)} · ${formatKwh(e.billKwh)}`,
-      `Consumo inquilino ${formatKwh(e.tenantKwh)}`,
+      `Consumo ${settings.tenantName} ${formatKwh(e.tenantKwh)}`,
       e.unitCost !== null ? `Costo unitario ${formatEuroPrecise(e.unitCost)}/kWh` : null,
     ]
       .filter(Boolean)
@@ -72,7 +72,7 @@ export async function exportMonthPdf(summary: MonthSummary, settings: Settings):
 
     autoTable(doc, {
       startY: y + 2,
-      head: [['Voce', 'Importo', 'Criterio', 'Inquilino', 'Proprietario']],
+      head: [['Voce', 'Importo', 'Criterio', t(settings.tenantName), t(settings.ownerName)]],
       body: [
         ...e.rows.map((r) => [t(r.label), t(formatEuro(r.amount)), t(r.criterion), t(formatEuro(r.tenant)), t(formatEuro(r.owner))]),
         [
@@ -104,7 +104,7 @@ export async function exportMonthPdf(summary: MonthSummary, settings: Settings):
     doc.text('Gas', 14, y);
     autoTable(doc, {
       startY: y + 3,
-      head: [['Periodo', 'Smc', 'Totale bolletta', 'Quota inquilino', 'Inquilino', 'Proprietario']],
+      head: [['Periodo', 'Smc', 'Totale bolletta', t(`Quota ${settings.tenantName}`), t(settings.tenantName), t(settings.ownerName)]],
       body: [
         [
           summary.gasBill.periodStart && summary.gasBill.periodEnd

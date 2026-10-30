@@ -46,8 +46,8 @@ export function defaultAllocation(): AllocationSettings {
 
 export function defaultSettings(): Settings {
   return {
-    tenantName: 'Inquilino',
-    ownerName: 'Proprietario',
+    tenantName: 'Ester',
+    ownerName: 'Marco',
     allocation: defaultAllocation(),
     vatMode: 'rate',
     gasTenantPercent: 35,
@@ -57,7 +57,7 @@ export function defaultSettings(): Settings {
 
 export function emptyDatabase(): Database {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     settings: defaultSettings(),
     readings: [],
     electricityBills: [],
@@ -91,8 +91,13 @@ export function normalizeDatabase(input: unknown): Database {
   const t = allocation.trasporto.consumo;
   if ((db.schemaVersion ?? 1) < 2 && t.method === 'half') allocation.trasporto.consumo = r('kwh');
   settings.allocation = allocation;
+  // Migrazione v2 → v3: i nomi segnaposto della prima versione diventano quelli reali (modificabili in Impostazioni)
+  if ((db.schemaVersion ?? 1) < 3) {
+    if (settings.tenantName === 'Inquilino') settings.tenantName = base.settings.tenantName;
+    if (settings.ownerName === 'Proprietario') settings.ownerName = base.settings.ownerName;
+  }
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     settings,
     readings: Array.isArray(db.readings) ? db.readings : [],
     electricityBills: Array.isArray(db.electricityBills) ? db.electricityBills : [],

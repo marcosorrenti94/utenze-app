@@ -23,10 +23,10 @@ export function buildShareMessage(summary: MonthSummary, settings: Settings): st
       );
     }
     if (e.unitCost !== null) {
-      out.push(`Costo a consumo (energia, oneri, accise): ${formatEuroPrecise(e.unitCost)}/kWh × ${formatKwh(e.tenantKwh)} = ${formatEuro(e.tenantKwhCost)}`);
+      out.push(`Costo a consumo (energia, trasporto, oneri, accise): ${formatEuroPrecise(e.unitCost)}/kWh × ${formatKwh(e.tenantKwh)} = ${formatEuro(e.tenantKwhCost)}`);
     }
     const halfTenant = e.rows.filter((r) => r.method !== 'kwh').reduce((s, r) => s + r.tenant, 0);
-    if (halfTenant !== 0) out.push(`Quote fisse, potenza, trasporto e altre voci ripartite: ${formatEuro(halfTenant)}`);
+    if (halfTenant !== 0) out.push(`Quote fisse, potenza e altre voci divise a metà: ${formatEuro(halfTenant)}`);
     if (e.vat.tenant !== 0) out.push(`IVA ${formatNumber(e.vat.rate)}% sulla tua quota: ${formatEuro(e.vat.tenant)}`);
     out.push(`Totale luce a tuo carico: ${formatEuro(e.tenantTotal)}`);
     out.push('');

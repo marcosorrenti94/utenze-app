@@ -12,6 +12,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { WarningList } from '@/components/WarningList';
 import { useData, useDb } from '@/state/DataContext';
+import { useNames } from '@/hooks/useNames';
 import { buildAllSummaries, setMonthPaid, type MonthSummary } from '@/lib/calc/summary';
 import { buildShareMessage } from '@/lib/message';
 import { exportMonthPdf } from '@/lib/pdfExport';
@@ -21,6 +22,7 @@ import { cn } from '@/lib/utils';
 type Filter = 'all' | 'due' | 'paid';
 
 export function SummaryPage({ focusMonth }: { focusMonth: string | null }) {
+  const names = useNames();
   const db = useDb();
   const summaries = useMemo(() => buildAllSummaries(db), [db]);
   const [filter, setFilter] = useState<Filter>('all');
@@ -30,7 +32,7 @@ export function SummaryPage({ focusMonth }: { focusMonth: string | null }) {
     <div>
       <PageHeader
         title="Riepilogo mensile"
-        description="Quanto deve pagarti l’inquilino ogni mese, con il dettaglio trasparente del calcolo."
+        description={`Quanto deve pagare ${names.tenant} a ${names.owner} ogni mese, con il dettaglio trasparente del calcolo.`}
         actions={
           <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)}>
             <TabsList>
@@ -47,7 +49,7 @@ export function SummaryPage({ focusMonth }: { focusMonth: string | null }) {
             icon={Receipt}
             tone="tenant"
             title={summaries.length ? 'Nessun mese in questo filtro' : 'Ancora nessun riepilogo'}
-            description="Inserisci una lettura del contascatti e le bollette del mese per vedere quanto deve pagare l’inquilino."
+            description={`Inserisci una lettura del contascatti e le bollette del mese per vedere quanto deve pagare ${names.tenant}.`}
           />
         </Card>
       ) : (
@@ -62,6 +64,7 @@ export function SummaryPage({ focusMonth }: { focusMonth: string | null }) {
 }
 
 function MonthCard({ summary: s, index, defaultOpen }: { summary: MonthSummary; index: number; defaultOpen: boolean }) {
+  const names = useNames();
   const db = useDb();
   const { update, readOnly } = useData();
   const [open, setOpen] = useState(defaultOpen);
@@ -121,12 +124,12 @@ function MonthCard({ summary: s, index, defaultOpen }: { summary: MonthSummary; 
                 <span className="inline-flex items-center gap-1">
                   <Flame className="size-3 text-cyan-500" /> Gas {s.gas ? formatEuro(s.gas.tenantTotal) : '—'}
                 </span>
-                <span>{formatKwh(s.tenantKwh)} inquilino</span>
+                <span>{formatKwh(s.tenantKwh)} {names.tenant}</span>
               </div>
             </div>
           </div>
           <div className="flex items-end justify-between gap-4 sm:flex-col sm:items-end sm:gap-1">
-            <p className="text-xs text-muted-foreground">Totale dovuto dall’inquilino</p>
+            <p className="text-xs text-muted-foreground">Totale dovuto da {names.tenant}</p>
             <p className="text-2xl font-semibold tracking-tight tabular sm:text-3xl">{formatEuro(s.tenantTotal)}</p>
           </div>
         </div>
@@ -208,6 +211,7 @@ function MonthCard({ summary: s, index, defaultOpen }: { summary: MonthSummary; 
 }
 
 function CalcDetail({ summary: s }: { summary: MonthSummary }) {
+  const names = useNames();
   const e = s.electricity;
   const g = s.gas;
   return (
@@ -222,7 +226,7 @@ function CalcDetail({ summary: s }: { summary: MonthSummary }) {
               Bolletta <strong className="text-foreground tabular">{formatEuro(e.billTotal)}</strong> · {formatKwh(e.billKwh)}
             </span>
             <span className="text-muted-foreground">
-              Inquilino <strong className="text-foreground tabular">{formatKwh(e.tenantKwh)}</strong> · Io {formatKwh(e.ownerKwh)}
+              {names.tenant} <strong className="text-foreground tabular">{formatKwh(e.tenantKwh)}</strong> · {names.owner} {formatKwh(e.ownerKwh)}
             </span>
             {e.unitCost !== null && (
               <span className="text-muted-foreground">
@@ -238,8 +242,8 @@ function CalcDetail({ summary: s }: { summary: MonthSummary }) {
                   <th scope="col" className="px-3 py-2 font-medium">Voce</th>
                   <th scope="col" className="px-3 py-2 text-right font-medium">Importo</th>
                   <th scope="col" className="px-3 py-2 font-medium">Criterio</th>
-                  <th scope="col" className="px-3 py-2 text-right font-medium text-violet-600 dark:text-violet-300">Inquilino</th>
-                  <th scope="col" className="px-3 py-2 text-right font-medium text-emerald-600 dark:text-emerald-400">Io</th>
+                  <th scope="col" className="px-3 py-2 text-right font-medium text-violet-600 dark:text-violet-300">{names.tenant}</th>
+                  <th scope="col" className="px-3 py-2 text-right font-medium text-emerald-600 dark:text-emerald-400">{names.owner}</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -300,11 +304,11 @@ function CalcDetail({ summary: s }: { summary: MonthSummary }) {
               <p className="font-medium tabular">{s.gasBill.smc ? `${formatNumber(s.gasBill.smc)} Smc` : '—'}</p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Inquilino ({formatNumber(g.percent)}%)</p>
+              <p className="text-xs text-muted-foreground">{names.tenant} ({formatNumber(g.percent)}%)</p>
               <p className="font-semibold tabular text-violet-600 dark:text-violet-300">{formatEuro(g.tenantTotal)}</p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Io</p>
+              <p className="text-xs text-muted-foreground">{names.owner}</p>
               <p className="font-semibold tabular text-emerald-600 dark:text-emerald-400">{formatEuro(g.ownerTotal)}</p>
             </div>
           </div>

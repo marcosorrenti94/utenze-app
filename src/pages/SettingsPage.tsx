@@ -65,13 +65,13 @@ export function SettingsPage() {
           </CardHeader>
           <CardContent>
             <fieldset disabled={readOnly} className="grid min-w-0 gap-4 sm:grid-cols-2">
-            <Field id="s-tenant" label="Nome inquilino">
+            <Field id="s-tenant" label="Nome di chi paga la quota (inquilina)">
               <Input id="s-tenant" value={s.tenantName} onChange={(e) => setS({ ...s, tenantName: e.target.value })} />
             </Field>
             <Field id="s-owner" label="Il tuo nome">
               <Input id="s-owner" value={s.ownerName} onChange={(e) => setS({ ...s, ownerName: e.target.value })} />
             </Field>
-            <Field id="s-gas" label="Quota gas inquilino (%)" hint="Predefinito: 35%">
+            <Field id="s-gas" label={`Quota gas ${s.tenantName || 'inquilina'} (%)`} hint="Predefinito: 35%">
               <NumberInput
                 id="s-gas"
                 value={s.gasTenantPercent}
@@ -211,12 +211,12 @@ export function SettingsPage() {
                               <div className="mt-2 flex items-center gap-2">
                                 <NumberInput
                                   id={`${id}-pct`}
-                                  aria-label={`Percentuale inquilino ${CATEGORY_LABELS[cat]} ${COMPONENT_LABELS[comp]}`}
+                                  aria-label={`Percentuale ${s.tenantName} ${CATEGORY_LABELS[cat]} ${COMPONENT_LABELS[comp]}`}
                                   value={rule.tenantPercent}
                                   onValueChange={(v) => setRule(cat, comp, { tenantPercent: Math.min(100, Math.max(0, v ?? 0)) })}
                                   className="h-8 w-20"
                                 />
-                                <span className="text-xs text-muted-foreground">% inquilino</span>
+                                <span className="text-xs text-muted-foreground">% {s.tenantName}</span>
                               </div>
                             )}
                           </td>
